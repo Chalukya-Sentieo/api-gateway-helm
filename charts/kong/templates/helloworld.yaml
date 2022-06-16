@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: hello-world
+  name: hello-world
+  namespace: kong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hello-world
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hello-world
+    spec:
+      containers:
+        - image: nginxdemos/hello
+          name: hello-world
+          ports:
+          - containerPort: 80
+            name: proxy
+            protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: hello-world-svc
+    app.kubernetes.io/version: 0.0.1
+  name: hello-world-svc
+  namespace: kong
+spec:
+  ports:
+  - name: proxy
+    port: 4000
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: hello-world
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: kong
+  name: hello-ingress
+  annotations:
+    konghq.com/strip-path: "true"
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/plugins: app-jwt,app-wait
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /hello
+            pathType: Prefix
+            backend:
+              service:
+                name: hello-world-svc
+                port:
+                  number: 4000
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-secret-creds
+  namespace: kong
+type: Opaque
+stringData:
+  kongCredType: jwt
+  key: KzmY6I1AclAZm0AY-uGD_ydt52sXhbcvXR6IVEFeyCw
+  algorithm: ES256
+  rsa_public_key: |-
+    -----BEGIN PUBLIC KEY-----
+    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWM2XNhsByrffGyZ+Z71P0MsE9VqT
+    G9AY1GqYq+QeUNxOSSyqmT+avYEk6p3Ts30RZJmTVD4qDUnft8/KgSjreQ==
+    -----END PUBLIC KEY-----
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: app-jwt
+  namespace: kong
+  annotations:
+    kubernetes.io/ingress.class: kong
+config:
+  secret_is_base64: false
+  run_on_preflight: true
+  key_claim_name: iss
+  claims_to_verify:
+    - exp
+  maximum_expiration: 31536000
+  # header_names:
+  #   - x-api-token
+  cookie_names:
+    - x-api-token
+  uri_param_names:
+    - x-api-token
+plugin: jwt
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: jwt-consumer
+  namespace: kong
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: apiUser
+credentials:
+  - jwt-secret-creds
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: app-wait
+  namespace: kong
+  annotations:
+    kubernetes.io/ingress.class: kong
+config:
+  waittime: 5
+plugin: go-wait
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: app-wait-consumer
+  namespace: kong
+  annotations:
+    kubernetes.io/ingress.class: kong

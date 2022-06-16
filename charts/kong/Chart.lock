@@ -2,5 +2,8 @@ dependencies:
 - name: postgresql
   repository: https://charts.bitnami.com/bitnami
   version: 11.1.15
-digest: sha256:cb9e215302b15075b10d11cb2aba7c0a5f4b8fe279d1be2ac4f53409171d862d
-generated: "2022-04-04T15:23:44.28531819+02:00"
+- name: konga
+  repository: https://usernames.github.io/konga-helm
+  version: 0.2.0
+digest: sha256:e7df64410f6241df219614968ca4b184877d51d47446c08b39592790c53b822d
+generated: "2022-06-15T02:09:47.501664273+05:30"

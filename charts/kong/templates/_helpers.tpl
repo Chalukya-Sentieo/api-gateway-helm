@@ -530,6 +530,9 @@ The name of the service used for the ingress controller's validation webhook
 
 {{- define "kong.plugins" -}}
 {{ $myList := list "bundled" }}
+{{- range .Values.plugins.goPlugins -}}
+{{- $myList = append $myList .pluginName -}}
+{{- end -}}
 {{- range .Values.plugins.configMaps -}}
 {{- $myList = append $myList .pluginName -}}
 {{- end -}}
@@ -784,6 +787,7 @@ the template that it itself is using form the above sections.
 {{- else if eq .Values.env.database "postgres" }}
   {{- $_ := set $autoEnv "KONG_PG_PORT" "5432" }}
 {{- end }}
+
 
 {{- if (and (not .Values.ingressController.enabled) (eq .Values.env.database "off")) }}
   {{- $_ := set $autoEnv "KONG_DECLARATIVE_CONFIG" "/kong_dbless/kong.yml" -}}
