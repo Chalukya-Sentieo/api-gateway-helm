@@ -49,7 +49,7 @@ metadata:
   annotations:
     konghq.com/strip-path: "true"
     kubernetes.io/ingress.class: "kong"
-    konghq.com/plugins: app-jwt,app-wait
+    konghq.com/plugins: app-jwt,app-jwt-ses
 spec:
   tls:
   - hosts:
@@ -118,18 +118,18 @@ credentials:
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
-  name: app-wait
+  name: app-jwt-ses
   namespace: kong
   annotations:
     kubernetes.io/ingress.class: kong
 config:
   waittime: 5
-plugin: go-wait
+plugin: jwt-with-session-validation
 ---
 apiVersion: configuration.konghq.com/v1
 kind: KongConsumer
 metadata:
-  name: app-wait-consumer
+  name: app-jwt-ses-consumer
   namespace: kong
   annotations:
     kubernetes.io/ingress.class: kong

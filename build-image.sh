@@ -1,5 +1,11 @@
 #!/bin/sh
 docker build -f Dockerfile.kong -t kong-api-gateway:latest .
+exitCode="$?"
+
+if [ $exitCode -ne 0 ]; then
+    echo "Build Error $exitCode"
+    exit $exitCode
+fi
 
 while getopts 'pa:' OPTION; do
 case "$OPTION" in
