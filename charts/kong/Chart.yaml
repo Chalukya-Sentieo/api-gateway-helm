@@ -18,4 +18,4 @@ dependencies:
 - name: konga
   version: 0.2.0
   repository: https://usernames.github.io/konga-helm
-  condition: konga.enabled
+  condition: konga-dashboard.enabled

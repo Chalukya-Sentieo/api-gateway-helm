@@ -67,7 +67,7 @@ postgresql:
   enabled: false
 
 konga-dashboard:
-  enabled: false
+  enabled: true
 
 image:
   repository: 602037364990.dkr.ecr.us-east-1.amazonaws.com/kong-api-gateway
