@@ -51,6 +51,10 @@ metadata:
     kubernetes.io/ingress.class: "kong"
     konghq.com/plugins: app-jwt,app-wait
 spec:
+  tls:
+  - hosts:
+    - rest.sentieo.com
+    secretName: sentieo.com.tls
   rules:
     - http:
         paths:
