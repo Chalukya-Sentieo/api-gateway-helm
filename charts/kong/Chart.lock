@@ -5,5 +5,5 @@ dependencies:
 - name: konga
   repository: https://usernames.github.io/konga-helm
   version: 0.2.0
-digest: sha256:e7df64410f6241df219614968ca4b184877d51d47446c08b39592790c53b822d
-generated: "2022-06-15T02:09:47.501664273+05:30"
+digest: sha256:ccae70e480b1bafdec4be1661bf13f7c4ecaecddf6940873536cb2fe144091f9
+generated: "2022-06-16T19:32:32.914151834+05:30"
