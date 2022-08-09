@@ -90,7 +90,7 @@ env:
 plugins:
   goPlugins:
     - pluginName: go-wait
-    - pluginName: jwt-with-session-validation
+    - pluginName: session-validator
 
 postgresql:
   enabled: false
