@@ -1,0 +1,78 @@
+name: Release Charts
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.9.0
+
+      - name: Add Bitnami
+        run: helm repo add bitnami https://charts.bitnami.com/bitnami
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.2.1
+
+      - name: Run chart-testing (list-changed)
+        id: list-changed
+        run: |
+          changed=$(ct list-changed)
+          if [[ -n "$changed" ]]; then
+            echo "::set-output name=changed::true"
+          fi
+
+      - name: Run chart-testing (lint)
+        run: ct lint --check-version-increment=false
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.3.0
+        # if: steps.list-changed.outputs.changed == 'true'
+        # TODO for some reason, the earlier chart-testing logic is never seeing any changes, though running it locally
+        # does show changes. This remains a mystery between a lack of any debug logging, but simply running tests
+        # always is fine
+
+      - name: Run chart-testing (install)
+        run: ct install --all
+
+  integration-test:
+    # Not a real requirement, but due to worker CPU contention, this can fail if it runs concurrent with lint-test
+    needs: lint-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: setup helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.9.0
+
+      - name: setup testing environment (kind-cluster)
+        run: ./scripts/test-env.sh
+
+      - name: run integration tests (integration)
+        run: ./scripts/test-run.sh
+
+      - name: run upgrade integration tests (integration-upgrade)
+        run: ./scripts/test-upgrade.sh
+
+      - name: cleanup integration tests (cleanup)
+        run: ./scripts/test-env.sh cleanup

@@ -28,6 +28,7 @@ $ helm install kong/kong --generate-name
   - [Database](#database)
     - [DB-less deployment](#db-less-deployment)
     - [Using the Postgres sub-chart](#using-the-postgres-sub-chart)
+      - [Postgres sub-chart considerations for OpenShift](#postgres-sub-chart-considerations-for-openshift)
   - [Runtime package](#runtime-package)
   - [Configuration method](#configuration-method)
   - [Separate admin and proxy nodes](#separate-admin-and-proxy-nodes)
@@ -87,7 +88,7 @@ To install Kong:
 $ helm repo add kong https://charts.konghq.com
 $ helm repo update
 
-$ helm install kong/kong --generate-name --set ingressController.installCRDs=false
+$ helm install kong/kong --generate-name
 ```
 
 ## Uninstall
@@ -177,6 +178,22 @@ The Postgres sub-chart is best used to quickly provision temporary environments
 without installing and configuring your database separately. For longer-lived
 environments, we recommend you manage your database outside the Kong Helm
 release.
+
+##### Postgres sub-chart considerations for OpenShift
+
+Due to the default `securityContexts` in the postgres sub-chart, you will need to add the following values to the `postgresql` section to get postgres running on OpenShift:
+
+```yaml
+  volumePermissions:
+    enabled: false
+    securityContext:
+      runAsUser: "auto"
+  primary:
+    containerSecurityContext:
+      enabled: false
+    podSecurityContext:
+      enabled: false
+```
 
 ### Runtime package
 
@@ -515,27 +532,17 @@ resource.
 ### Removing cluster-scoped permissions
 
 You can limit the controller's access to allow it to only watch specific
-namespaces for resources. By default, the controller watches all namespaces.
-Limiting access requires several changes to configuration:
+namespaces for namespaced resources. By default, the controller watches all
+namespaces. Limiting access requires several changes to configuration:
 
 - Set `ingressController.watchNamespaces` to a list of namespaces you want to
   watch. The chart will automatically generate roles for each namespace and
   assign them to the controller's service account.
-- Set `ingressController.env.enable_controller_kongclusterplugin=false` and
-  `ingressController.env.enable_controller_ingress_class_networkingv1=false`.
-  These are cluster-scoped resources, and controllers with no ClusterRole
-  cannot access them.
 - Optionally set `ingressContrller.installCRDs=false` if your user role (the
   role you use when running `helm install`, not the controller service
   account's role) does not have access to get CRDs. By default, the chart
   attempts to look up the controller CRDs for [a legacy behavior
   check](#crd-management).
-
-Because there is no namespaced version of IngressClass, controllers without
-cluster-scoped permissions cannot access them. The controller will rely
-entirely on whether the ingress class annotation or `ingressClassName` value
-matches the value set by `--ingress-class` or `CONTROLLER_INGRESS_CLASS` to
-determine which Ingresses it should use.
 
 ### Using a DaemonSet
 
@@ -675,7 +682,7 @@ section of `values.yaml` file:
 | image.effectiveSemver                   | Version of the ingress controller used for version-specific features when image.tag is not a valid semantic version                                      |                                    |
 | readinessProbe                          | Kong ingress controllers readiness probe                                                                                                                 |                                    |
 | livenessProbe                           | Kong ingress controllers liveness probe                                                                                                                  |                                    |
-| installCRDs                             | Creates managed CRDs.                                                                                                                                    | false                              |
+| installCRDs                             | Legacy toggle for Helm 2-style CRD management. Should not be set [unless necessary due to cluster permissions](#removing-cluster-scoped-permissions).    | false                              |
 | env                                     | Specify Kong Ingress Controller configuration via environment variables                                                                                  |                                    |
 | customEnv                               | Specify custom environment variables (without the CONTROLLER_ prefix)                                                                                    |                                    |
 | ingressClass                            | The name of this controller's ingressClass                                                                                                               | kong                               |
@@ -695,7 +702,7 @@ section of `values.yaml` file:
 #### The `env` section
 For a complete list of all configuration values you can set in the
 `env` section, please read the Kong Ingress Controller's
-[configuration document](https://github.com/Kong/kubernetes-ingress-controller/blob/main/docs/references/cli-arguments.md).
+[configuration document](https://github.com/Kong/docs.konghq.com/blob/main/src/kubernetes-ingress-controller/references/cli-arguments.md).
 
 #### The `customEnv` section
 
@@ -724,8 +731,10 @@ kong:
 | deployment.userDefinedVolumes      | Create volumes. Please go to Kubernetes doc for the spec of the volumes               |                     |
 | deployment.userDefinedVolumeMounts | Create volumeMounts. Please go to Kubernetes doc for the spec of the volumeMounts     |                     |
 | deployment.serviceAccount.create   | Create Service Account for the Deployment / Daemonset and the migrations              | `true`              |
+| deployment.serviceAccount.automountServiceAccountToken   | Enable ServiceAccount token automount in Kong deployment        | `false`             |
 | deployment.serviceAccount.name     | Name of the Service Account, a default one will be generated if left blank.           | ""                  |
 | deployment.serviceAccount.annotations | Annotations for the Service Account                                                | {}                  |
+| deployment.test.enabled            | Enable creation of test resources for use with "helm test"                            | `false`             |
 | autoscaling.enabled                | Set this to `true` to enable autoscaling                                              | `false`             |
 | autoscaling.minReplicas            | Set minimum number of replicas                                                        | `2`                 |
 | autoscaling.maxReplicas            | Set maximum number of replicas                                                        | `5`                 |
@@ -765,7 +774,9 @@ kong:
 | serviceMonitor.metricRelabelings   | ServiceMonitor metricRelabelings                                                      | `{}`                |
 | extraConfigMaps                    | ConfigMaps to add to mounted volumes                                                  | `[]`                |
 | extraSecrets                       | Secrets to add to mounted volumes                                                     | `[]`                |
-
+| nameOverride                       | Replaces "kong" in resource names, like "RELEASENAME-nameOverride" instead of "RELEASENAME-kong" | `""`                |
+| fullnameOverride                   | Overrides the entire resource name string                                             | `""`                |
+| extraObjects                       | Create additional k8s resources                                                       | `[]`                |
 **Note:** If you are using `deployment.hostNetwork` to bind to lower ports ( < 1024), which may be the desired option (ports 80 and 433), you also
 need to tweak the `containerSecurityContext` configuration as in the example:
 

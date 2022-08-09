@@ -8,7 +8,9 @@ maintainers:
   email: chalukya@sentieo.com
 name: kong
 sources:
-version: 2.9.3
+- https://github.com/Kong/charts/tree/main/charts/kong
+version: 2.11.0
+
 appVersion: "2.8"
 dependencies:
 - name: postgresql
