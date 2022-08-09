@@ -14,6 +14,10 @@ import (
 
 type Config struct {
 }
+
+func New() interface{} {
+	return &Config{}
+}
 EOF
 # UNCOMMENT `go mod {}` commands to enable go.mod and go.sum file generation
 #go mod tidy

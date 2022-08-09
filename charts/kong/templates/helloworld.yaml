@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: hello-world
   name: hello-world
-  namespace: kong
+  namespace: {{ .Values.namespaceOverride}}
 spec:
   replicas: 1
   selector:
@@ -16,10 +16,68 @@ spec:
         app.kubernetes.io/name: hello-world
     spec:
       containers:
-        - image: nginxdemos/hello
+        - image: nginxdemos/hello:latest
           name: hello-world
+          imagePullPolicy: Always
           ports:
           - containerPort: 80
+            name: proxy
+            protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: grpc-demo
+  name: grpc-demo
+  namespace: {{ .Values.namespaceOverride}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grpc-demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grpc-demo
+    spec:
+      containers:
+        - image: chalukyaj/grpc-demo-unary:latest
+          name: grpc-demo
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 50051
+            name: grpc
+          env:
+            - name: GRPC_VERBOSITY
+              value: DEBUG
+            - name: GRPC_TRACE
+              value: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: demo-world
+  name: demo-world
+  namespace: {{ .Values.namespaceOverride}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo-world
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo-world
+    spec:
+      containers:
+        - image: chalukyaj/demo_nodejs_app:latest
+          name: demo-world
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 4000
             name: proxy
             protocol: TCP
 ---
@@ -30,106 +88,246 @@ metadata:
     app.kubernetes.io/name: hello-world-svc
     app.kubernetes.io/version: 0.0.1
   name: hello-world-svc
-  namespace: kong
+  namespace: {{ .Values.namespaceOverride}}
 spec:
   ports:
   - name: proxy
-    port: 4000
+    port: 80
     protocol: TCP
     targetPort: 80
   selector:
     app.kubernetes.io/name: hello-world
   type: ClusterIP
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: grpc-demo-svc
+    app.kubernetes.io/version: 0.0.1
+  annotations:
+    konghq.com/protocol: grpc
+  name: grpc-demo-svc
+  namespace: {{ .Values.namespaceOverride}}
+spec:
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: 50051
+  selector:
+    app.kubernetes.io/name: grpc-demo
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: demo-world-svc
+    app.kubernetes.io/version: 0.0.1
+  name: demo-world-svc
+  namespace: {{ .Values.namespaceOverride}}
+spec:
+  ports:
+  - name: proxy
+    port: 4000
+    protocol: TCP
+    targetPort: 4000
+  selector:
+    app.kubernetes.io/name: demo-world
+  type: ClusterIP
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  namespace: kong
+  namespace: {{ .Values.namespaceOverride}}
   name: hello-ingress
   annotations:
-    konghq.com/strip-path: "true"
     kubernetes.io/ingress.class: "kong"
-    konghq.com/plugins: app-jwt,app-jwt-ses
+    konghq.com/override: custom-kong-get
+#    konghq.com/plugins: app-jwt-ses
 spec:
   tls:
-  - hosts:
-    - rest.sentieo.com
-    secretName: sentieo.com.tls
+    - hosts:
+      - "*.sentieo.com"
+      secretName: sentieo.com.tls
   rules:
     - http:
         paths:
-          - path: /hello
+          - path: /api/hello
             pathType: Prefix
             backend:
               service:
                 name: hello-world-svc
                 port:
+                  number: 80
+    - http:
+        paths:
+          - path: /api/demo
+            pathType: Prefix
+            backend:
+              service:
+                name: demo-world-svc
+                port:
                   number: 4000
 ---
-apiVersion: v1
-kind: Secret
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: jwt-secret-creds
-  namespace: kong
-type: Opaque
-stringData:
-  kongCredType: jwt
-  key: KzmY6I1AclAZm0AY-uGD_ydt52sXhbcvXR6IVEFeyCw
-  algorithm: ES256
-  rsa_public_key: |-
-    -----BEGIN PUBLIC KEY-----
-    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWM2XNhsByrffGyZ+Z71P0MsE9VqT
-    G9AY1GqYq+QeUNxOSSyqmT+avYEk6p3Ts30RZJmTVD4qDUnft8/KgSjreQ==
-    -----END PUBLIC KEY-----
+  namespace: {{ .Values.namespaceOverride}}
+  name: grpc-ingress
+  annotations:
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/protocols: grpc
+#    konghq.com/plugins: app-jwt-ses
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: grpc-demo-svc
+                port:
+                  number: 50051
+      host: grpc.sentieo.com
 ---
 apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
+kind: KongIngress
 metadata:
-  name: app-jwt
-  namespace: kong
-  annotations:
-    kubernetes.io/ingress.class: kong
-config:
-  secret_is_base64: false
-  run_on_preflight: true
-  key_claim_name: iss
-  claims_to_verify:
-    - exp
-  maximum_expiration: 31536000
-  # header_names:
-  #   - x-api-token
-  cookie_names:
-    - x-api-token
-  uri_param_names:
-    - x-api-token
-plugin: jwt
+  name: custom-kong-get
+  namespace: {{ .Values.namespaceOverride}}
+proxy:
+  protocol: https
+  connect_timeout: 10000
+  retries: 10
+  read_timeout: 10000
+  write_timeout: 10000
+route:
+  methods:
+  - GET
+  regex_priority: 0
+  strip_path: false
+  preserve_host: true
+  protocols:
+  - https
+  https_redirect_status_code: 302
 ---
 apiVersion: configuration.konghq.com/v1
-kind: KongConsumer
+kind: KongIngress
 metadata:
-  name: jwt-consumer
-  namespace: kong
-  annotations:
-    kubernetes.io/ingress.class: kong
-username: apiUser
-credentials:
-  - jwt-secret-creds
+  name: custom-kong-post
+  namespace: {{ .Values.namespaceOverride}}
+proxy:
+  protocol: https
+  connect_timeout: 10000
+  retries: 10
+  read_timeout: 10000
+  write_timeout: 10000
+route:
+  methods:
+  - PUT
+  regex_priority: 0
+  strip_path: false
+  preserve_host: true
+  protocols:
+  - https
+  https_redirect_status_code: 302
 ---
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: app-jwt-ses
-  namespace: kong
+  namespace: {{ .Values.namespaceOverride}}
+  name: konga-ingress
   annotations:
-    kubernetes.io/ingress.class: kong
-config:
-  waittime: 5
-plugin: jwt-with-session-validation
----
-apiVersion: configuration.konghq.com/v1
-kind: KongConsumer
-metadata:
-  name: app-jwt-ses-consumer
-  namespace: kong
-  annotations:
-    kubernetes.io/ingress.class: kong
+    kubernetes.io/ingress.class: "kong"
+    konghq.com/protocols: "https"
+    konghq.com/https-redirect-status-code: "302"
+#    konghq.com/plugins: app-jwt-ses
+spec:
+  tls:
+    - hosts:
+      - "*.sentieo.com"
+      secretName: sentieo.com.tls
+  rules:
+    - host: konga.sentieo.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kong-release-konga
+                port:
+                  number: 1337
+
+
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: jwt-secret-creds
+#   namespace: {{ .Values.namespaceOverride}}
+# type: Opaque
+# stringData:
+#   kongCredType: jwt
+#   key: KzmY6I1AclAZm0AY-uGD_ydt52sXhbcvXR6IVEFeyCw
+#   algorithm: ES256
+#   rsa_public_key: |-
+#     -----BEGIN PUBLIC KEY-----
+#     MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWM2XNhsByrffGyZ+Z71P0MsE9VqT
+#     G9AY1GqYq+QeUNxOSSyqmT+avYEk6p3Ts30RZJmTVD4qDUnft8/KgSjreQ==
+#     -----END PUBLIC KEY-----
+# ---
+# apiVersion: configuration.konghq.com/v1
+# kind: KongPlugin
+# metadata:
+#   name: app-jwt
+#   namespace: {{ .Values.namespaceOverride}}
+#   annotations:
+#     kubernetes.io/ingress.class: kong
+# config:
+#   secret_is_base64: false
+#   run_on_preflight: true
+#   key_claim_name: iss
+#   claims_to_verify:
+#     - exp
+#   maximum_expiration: 31536000
+#   # header_names:
+#   #   - x-api-token
+#   cookie_names:
+#     - x-api-token
+#   uri_param_names:
+#     - x-api-token
+# plugin: jwt
+# ---
+# apiVersion: configuration.konghq.com/v1
+# kind: KongConsumer
+# metadata:
+#   name: jwt-consumer
+#   namespace: {{ .Values.namespaceOverride}}
+#   annotations:
+#     kubernetes.io/ingress.class: kong
+# username: apiUser
+# credentials:
+#   - jwt-secret-creds
+# ---
+# apiVersion: configuration.konghq.com/v1
+# kind: KongPlugin
+# metadata:
+#   name: app-jwt-ses
+#   namespace: {{ .Values.namespaceOverride}}
+#   annotations:
+#     kubernetes.io/ingress.class: kong
+# config:
+#   waittime: 5
+# plugin: jwt-with-session-validation
+# ---
+# apiVersion: configuration.konghq.com/v1
+# kind: KongConsumer
+# metadata:
+#   name: app-jwt-ses-consumer
+#   namespace: {{ .Values.namespaceOverride}}
+#   annotations:
+#     kubernetes.io/ingress.class: kong
+# ---

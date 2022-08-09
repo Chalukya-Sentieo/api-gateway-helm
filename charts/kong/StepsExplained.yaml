@@ -1,0 +1,45 @@
+Explanation:
+These are the files you get with untaring the archive
+
+route_yamls/
+├── convert_yaml_to_hapoxy.py
+├── docker-compose.yaml
+├── haproxy.cfg
+├── routes
+│   ├── collab.yaml
+│   ├── finance.yaml
+│   ├── gateway.yaml
+│   ├── graph.yaml
+│   ├── scraping.yaml
+│   ├── search.yaml
+│   ├── user.yaml
+│   └── web.yaml
+├── sanitize.py
+└── sentieo.com.pem
+
+Steps explained:
+  Step1:
+    - untaring the archive
+  Step2:
+    - Docker Login into the ecr repo. REGION env var to login into the corresponding AWS ECR region. AWS_PROFILE is optional, this in case you ran your aws configure with `--profile prod` option
+  Step3:
+    - cd into the route_yamls/ directory
+  Step4:
+    - python3 sanitize.py: This sanitizes the <api>.yamls to convert any non standard yamls to a standard one. Not important for setup using haproxy. Just here to demonstrate usage when we'll start using these with alternative api gateway. Can ignore for now !
+  Step5:
+    - python3 convert_yaml_to_haproxy.py: This converts the routes/*.yamls to a equivalent haproxy.cfg which will be used to proxy the requests based on domain and path based routing
+      Flags:
+        - HTTPS_ONLY: This determines whether all requests will be handled over https and any http request will automatically be redirected to https
+        - DOMAIN_PREFIX: This adds a prefix for all domains that will be used for routing in haproxy.cfg so that when a request comes from that domain it'll point to the relevant service. This will get more clear once you read the further description of how the script works
+        - domainMap: This is the key value map of service to the port and dns that service is expected to listen on. For example |-
+          'search' : {
+              'port': 8080,
+              'dns': [
+                  'dev-search',
+                  'user-dev-search'
+              ]
+          }
+          Will setup a haproxy config for service `sentieosearch` which will be listening on port 8080 with dns's `<DOMAIN_PREFIX>dev-search.sentieo.com` and `<DOMAIN_PREFIX>user-dev-search.sentieo.com`
+          
+          This will also setup path based routing based on routes found in `routes/search.yaml` file. Checkout routes/search.yaml for an example.
+

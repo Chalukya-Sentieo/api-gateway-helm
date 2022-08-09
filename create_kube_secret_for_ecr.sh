@@ -2,5 +2,5 @@
 kubectl create secret docker-registry regcred \
   --docker-server=602037364990.dkr.ecr.us-east-1.amazonaws.com \
   --docker-username=AWS \
-  --docker-password=$(aws ecr get-login-password) \
+  --docker-password=$(aws ecr get-login-password --profile=prod --region=us-east-1) \
   --namespace=kong

@@ -5,7 +5,7 @@ admin:
   # Disabling this is recommended for most ingress controller configurations
   # Enterprise users that wish to use Kong Manager with the controller should enable this
   enabled: true
-  type: LoadBalancer
+  type: ClusterIP
   # To specify annotations or labels for the admin service, add them to the respective
   # "annotations" or "labels" dictionaries below.
   annotations: {}
@@ -54,14 +54,43 @@ admin:
     # Each path in an Ingress is required to have a corresponding path type. (ImplementationSpecific/Exact/Prefix)
     pathType: ImplementationSpecific
 
+# deployment:
+#   kong:
+#     serviceAccount:
+#       annotations:
+#         kubernetes.io/ingress.class: alb
+#         alb.ingress.kubernetes.io/scheme: internet-facing
+#         alb.ingress.kubernetes.io/target-type: instance
+
+proxy:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-name: K8sLB
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-ip-address-type: ipv4
+    service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-0836ac19a2cd831fe
+nodeSelector:
+  node-selector-label: kong
+
+tolerations:
+  - key: app
+    operator: Equal
+    value: kong
+    effect: NoSchedule
+
+
 env:
   database: "off"
+  trusted_ips: "0.0.0.0/0,::/0"
   #database: "postgres"
 
 plugins:
   goPlugins:
     - pluginName: go-wait
-    - pluginName: session-validator
+    - pluginName: jwt-with-session-validation
 
 postgresql:
   enabled: false

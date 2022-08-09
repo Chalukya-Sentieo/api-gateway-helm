@@ -1,0 +1,34 @@
+apis:
+  activate_trump_tracker_subscription:
+    auth: false
+    csrf_exempt: true
+    request_method:
+    - POST
+  add_broker_request_for_user:
+    request_method:
+    - POST
+    timeout: 10
+  add_broker_requests_for_multiple_users:
+    request_method:
+    - POST
+    timeout: 10
+  bulk_download:
+    request_method:
+    - POST
+    timeout: 20
+  deactivate_trump_tracker_subscription:
+    auth: false
+    csrf_exempt: true
+    request_method:
+    - POST
+  document:
+    request_method:
+    - GET
+  documents:
+    request_method:
+    - POST
+  download_s3_file:
+    request_method:
+    - GET
+    staff: true
+    timeout: 10
