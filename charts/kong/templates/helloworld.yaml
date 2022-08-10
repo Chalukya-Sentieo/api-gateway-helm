@@ -247,7 +247,7 @@ metadata:
     kubernetes.io/ingress.class: "kong"
     konghq.com/protocols: "https"
     konghq.com/https-redirect-status-code: "302"
-#    konghq.com/plugins: app-jwt-ses
+    konghq.com/plugins: ses-auth
 spec:
   tls:
     - hosts:
