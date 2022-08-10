@@ -60,7 +60,6 @@ env:
 
 plugins:
   goPlugins:
-    - pluginName: go-wait
     - pluginName: session-validator
 
 postgresql:
