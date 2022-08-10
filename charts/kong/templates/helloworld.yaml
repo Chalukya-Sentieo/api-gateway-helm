@@ -144,7 +144,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "kong"
     konghq.com/override: custom-kong-get
-#    konghq.com/plugins: app-jwt-ses
+    konghq.com/plugins: ses-auth
 spec:
   tls:
     - hosts:
@@ -178,7 +178,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "kong"
     konghq.com/protocols: grpc,grpcs
-#    konghq.com/plugins: app-jwt-ses
+    konghq.com/plugins: ses-auth
 spec:
   tls:
     - hosts:
@@ -247,7 +247,6 @@ metadata:
     kubernetes.io/ingress.class: "kong"
     konghq.com/protocols: "https"
     konghq.com/https-redirect-status-code: "302"
-    konghq.com/plugins: ses-auth
 spec:
   tls:
     - hosts:
