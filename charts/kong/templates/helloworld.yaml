@@ -177,9 +177,13 @@ metadata:
   name: grpc-ingress
   annotations:
     kubernetes.io/ingress.class: "kong"
-    konghq.com/protocols: grpc
+    konghq.com/protocols: grpc,grpcs
 #    konghq.com/plugins: app-jwt-ses
 spec:
+  tls:
+    - hosts:
+      - "*.sentieo.com"
+      secretName: sentieo.com.tls
   rules:
     - http:
         paths:
@@ -190,7 +194,7 @@ spec:
                 name: grpc-demo-svc
                 port:
                   number: 50051
-      host: grpc.sentieo.com
+      #host: grpc.sentieo.com
 ---
 apiVersion: configuration.konghq.com/v1
 kind: KongIngress
@@ -250,7 +254,7 @@ spec:
       - "*.sentieo.com"
       secretName: sentieo.com.tls
   rules:
-    - host: konga.sentieo.com
+    - host: konga-prod.sentieo.com
       http:
         paths:
           - path: /
@@ -260,74 +264,14 @@ spec:
                 name: kong-release-konga
                 port:
                   number: 1337
-
-
-# ---
-# apiVersion: v1
-# kind: Secret
-# metadata:
-#   name: jwt-secret-creds
-#   namespace: {{ .Values.namespaceOverride}}
-# type: Opaque
-# stringData:
-#   kongCredType: jwt
-#   key: KzmY6I1AclAZm0AY-uGD_ydt52sXhbcvXR6IVEFeyCw
-#   algorithm: ES256
-#   rsa_public_key: |-
-#     -----BEGIN PUBLIC KEY-----
-#     MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWM2XNhsByrffGyZ+Z71P0MsE9VqT
-#     G9AY1GqYq+QeUNxOSSyqmT+avYEk6p3Ts30RZJmTVD4qDUnft8/KgSjreQ==
-#     -----END PUBLIC KEY-----
-# ---
-# apiVersion: configuration.konghq.com/v1
-# kind: KongPlugin
-# metadata:
-#   name: app-jwt
-#   namespace: {{ .Values.namespaceOverride}}
-#   annotations:
-#     kubernetes.io/ingress.class: kong
-# config:
-#   secret_is_base64: false
-#   run_on_preflight: true
-#   key_claim_name: iss
-#   claims_to_verify:
-#     - exp
-#   maximum_expiration: 31536000
-#   # header_names:
-#   #   - x-api-token
-#   cookie_names:
-#     - x-api-token
-#   uri_param_names:
-#     - x-api-token
-# plugin: jwt
-# ---
-# apiVersion: configuration.konghq.com/v1
-# kind: KongConsumer
-# metadata:
-#   name: jwt-consumer
-#   namespace: {{ .Values.namespaceOverride}}
-#   annotations:
-#     kubernetes.io/ingress.class: kong
-# username: apiUser
-# credentials:
-#   - jwt-secret-creds
-# ---
-# apiVersion: configuration.konghq.com/v1
-# kind: KongPlugin
-# metadata:
-#   name: app-jwt-ses
-#   namespace: {{ .Values.namespaceOverride}}
-#   annotations:
-#     kubernetes.io/ingress.class: kong
-# config:
-#   waittime: 5
-# plugin: jwt-with-session-validation
-# ---
-# apiVersion: configuration.konghq.com/v1
-# kind: KongConsumer
-# metadata:
-#   name: app-jwt-ses-consumer
-#   namespace: {{ .Values.namespaceOverride}}
-#   annotations:
-#     kubernetes.io/ingress.class: kong
-# ---
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: ses-auth
+  namespace: {{ .Values.namespaceOverride}}
+config:
+  authserverurl: "http://mockbin.org/bin/af5a0330-b848-4758-a27e-f61961a12570"
+  authmethod: POST
+  authtokenkey: AUTH_BEARER_TOKEN
+plugin: session-validator

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"fmt"
 	"bytes"
 	"strings"
@@ -11,43 +10,36 @@ import (
 )
 
 type Config struct {
-	headerName string
-	cookieName string
-	paramName  string
-	authServerURL string
-	authMethod string
-	authTokenKey string
+	AuthServerURL string	//Mandatory
+	HeaderName string		//Optional	Defaults to `authorization` (bearer token)
+	CookieName string		//Optional	Defaults to `x-api-token`
+	ParamName  string		//Optional	Defaults to `x-api-token`
+	AuthMethod string		//Optional	Defaults to `GET`
+	AuthTokenKey string		//Optional	Defaults to `auth_token`
 }
 
 func New() interface{} {
 	return &Config{}
 }
 
-var AuthServiceURL = "http://mockbin.org/bin/c4d291ab-eff3-44a9-b901-ef8bf0f4a3d5"
-var AuthMethod = "GET"
-var AuthURLEnv, authEnvOk = os.LookupEnv("KONG_AUTH_SERVER_URL")
-var AuthMethodEnv, AuthMethodOk = os.LookupEnv("KONG_AUTH_METHOD")
-
 var headersToSend = make(map[string][]string)
 
 func (config Config) Access(kong *pdk.PDK) {
 	_ = kong.Response.SetHeader("content-type", "application/json")
-
 	/**
 	Check if Header has the authentication token
 	*/
-	headerName := config.headerName
+	headerName := config.HeaderName
 	if headerName == "" {
 		headerName = "authorization"
 	}
 	token, _ := kong.Request.GetHeader(headerName)
 
-
 	/**
 	Check if the query arg has the token in case header doesn't have it
 	*/
 	if token == "" {
-		paramName := config.paramName
+		paramName := config.ParamName
 		if paramName == "" {
 			paramName = "x-api-token"
 		}
@@ -60,7 +52,6 @@ func (config Config) Access(kong *pdk.PDK) {
 		token = valSplit[len(valSplit) - 1]	//Get Bearer Token
 	}
 
-
 	/**
 	Check if the cookie has the token in case header and query args don't have it
 	*/
@@ -69,7 +60,7 @@ func (config Config) Access(kong *pdk.PDK) {
 		
 		cookies := strings.Split(cookieHeader, "; ")
 		for i := 0; i < len(cookies); i++ {
-			cookieName := config.cookieName
+			cookieName := config.CookieName
 			if cookieName == "" {
 				cookieName = "x-api-token"
 			}
@@ -85,42 +76,30 @@ func (config Config) Access(kong *pdk.PDK) {
 		/**
 		Call Auth Server with the fetched token
 		*/
+		AuthServiceURL := config.AuthServerURL
+		AuthMethod := "GET"
 
-		getAuthTokenKey := "token"
-		postAuthTokenKey := "sid"
+		AuthTokenKey := "auth_token"
 
-		AuthServiceURLUse := AuthServiceURL
-		AuthMethodUse := AuthMethod
-
-		if config.authServerURL != "" {
-			AuthServiceURLUse = config.authServerURL
-		} else if authEnvOk {
-			AuthServiceURLUse = AuthURLEnv
+		if config.AuthMethod != "" {
+			AuthMethod = config.AuthMethod
+		}
+		if config.AuthTokenKey != "" {
+			AuthTokenKey = config.AuthTokenKey
 		}
 
-		if config.authMethod != "" {
-			AuthMethodUse = config.authMethod
-		} else if AuthMethodOk {
-			AuthMethodUse = AuthMethodEnv
-		}
-
-		if config.authTokenKey != "" {
-			getAuthTokenKey = config.authTokenKey
-			postAuthTokenKey = config.authTokenKey
-		}
-		
-		if AuthMethodUse == "GET" {
-			_, err := http.Get(fmt.Sprintf("%s?%s=%s", AuthServiceURLUse, getAuthTokenKey, token))
+		if AuthMethod == "GET" {
+			_, err := http.Get(fmt.Sprintf("%s?%s=%s", AuthServiceURL, AuthTokenKey, token))
 
 			if err != nil {
 				kong.Response.Exit(401, "{\"message\": \"Token Could Not Be Authenticated !\"}", headersToSend)
 			}
 		} else {
 			_, err := http.Post(
-				AuthServiceURLUse,
+				AuthServiceURL,
 				"application/json",
 				bytes.NewBuffer(
-					[]byte(fmt.Sprintf(`{"%s":"%s"}`, postAuthTokenKey, token)),
+					[]byte(fmt.Sprintf(`{"%s":"%s"}`, AuthTokenKey, token)),
 				),
 			)
 
@@ -133,7 +112,7 @@ func (config Config) Access(kong *pdk.PDK) {
 }
 
 func main() {
-	Version := "1.2"
+	Version := "1.5"
 	Priority := 1000
 	_ = server.StartServer(New, Version, Priority)
 }
