@@ -116,7 +116,6 @@ spec:
     targetPort: 50051
   selector:
     app.kubernetes.io/name: grpc-demo
-  type: LoadBalancer
 ---
 apiVersion: v1
 kind: Service
