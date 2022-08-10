@@ -6,7 +6,7 @@ RUN cd /app/custom-plugins && \
 RUN mkdir /app/all-plugin-execs && cd /app/custom-plugins && \
     find . -type f -not -name "*.*" | xargs -i cp {} /app/all-plugin-execs/
 
-FROM kong:2.8
+FROM kong:2.8.1
 
 COPY --from=pluginbuild /app/all-plugin-execs/ /usr/local/bin/
 COPY --from=pluginbuild /app/all-plugin-execs/ /usr/local/bin/plugin-ref/
